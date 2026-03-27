@@ -1,5 +1,4 @@
-const Review = require('../models/Review');
-const Product = require('../models/Product');
+const reviewService = require('../services/reviewService');
 
 // @desc    Get reviews
 // @route   GET /api/v1/reviews
@@ -7,18 +6,12 @@ const Product = require('../models/Product');
 // @access  Public
 exports.getReviews = async (req, res) => {
     try {
-        let query;
-
+        let reviews;
         if (req.params.productId) {
-            query = Review.find({ product: req.params.productId });
+            reviews = await reviewService.getReviewsByProduct(req.params.productId);
         } else {
-            query = Review.find().populate({
-                path: 'product',
-                select: 'name description'
-            });
+            reviews = await reviewService.getAllReviews();
         }
-
-        const reviews = await query;
         res.status(200).json({ success: true, count: reviews.length, data: reviews });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -30,11 +23,7 @@ exports.getReviews = async (req, res) => {
 // @access  Public
 exports.getReview = async (req, res) => {
     try {
-        const review = await Review.findById(req.params.id).populate({
-            path: 'product',
-            select: 'name description'
-        });
-
+        const review = await reviewService.getReviewById(req.params.id);
         if (!review) return res.status(404).json({ success: false, message: 'No review found with the id' });
         res.status(200).json({ success: true, data: review });
     } catch (error) {
@@ -50,10 +39,10 @@ exports.addReview = async (req, res) => {
         req.body.product = req.params.productId;
         req.body.user = req.user.id;
 
-        const product = await Product.findById(req.params.productId);
+        const product = await reviewService.checkProductExists(req.params.productId);
         if (!product) return res.status(404).json({ success: false, message: 'No product found' });
 
-        const review = await Review.create(req.body);
+        const review = await reviewService.createReview(req.body);
         res.status(201).json({ success: true, data: review });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -65,7 +54,7 @@ exports.addReview = async (req, res) => {
 // @access  Private
 exports.updateReview = async (req, res) => {
     try {
-        let review = await Review.findById(req.params.id);
+        let review = await reviewService.getReviewToUpdate(req.params.id);
         if (!review) return res.status(404).json({ success: false, message: 'No review found' });
 
         // Make sure review belongs to user or user is admin
@@ -73,11 +62,7 @@ exports.updateReview = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Not authorized to update review' });
         }
 
-        review = await Review.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true
-        });
-
+        review = await reviewService.updateReview(req.params.id, req.body);
         res.status(200).json({ success: true, data: review });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -89,14 +74,14 @@ exports.updateReview = async (req, res) => {
 // @access  Private
 exports.deleteReview = async (req, res) => {
     try {
-        const review = await Review.findById(req.params.id);
+        const review = await reviewService.getReviewToUpdate(req.params.id);
         if (!review) return res.status(404).json({ success: false, message: 'No review found' });
 
         if (review.user.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(401).json({ success: false, message: 'Not authorized to update review' });
+            return res.status(401).json({ success: false, message: 'Not authorized to delete review' });
         }
 
-        await review.deleteOne();
+        await reviewService.deleteReview(review);
         res.status(200).json({ success: true, data: {} });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

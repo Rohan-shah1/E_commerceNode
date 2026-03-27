@@ -1,4 +1,4 @@
-const Order = require('../models/Order');
+const orderService = require('../services/orderService');
 
 // @desc    Create new order
 // @route   POST /api/v1/orders
@@ -9,16 +9,16 @@ exports.addOrderItems = async (req, res) => {
 
         if (orderItems && orderItems.length === 0) {
             return res.status(400).json({ success: false, message: 'No order items' });
-        } else {
-            const order = new Order({
-                orderItems,
-                user: req.user._id,
-                shippingAddress,
-                totalPrice
-            });
-            const createdOrder = await order.save();
-            res.status(201).json({ success: true, data: createdOrder });
         }
+        
+        const createdOrder = await orderService.createOrder({
+            orderItems,
+            user: req.user._id,
+            shippingAddress,
+            totalPrice
+        });
+        
+        res.status(201).json({ success: true, data: createdOrder });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -29,7 +29,7 @@ exports.addOrderItems = async (req, res) => {
 // @access  Private
 exports.getOrderById = async (req, res) => {
     try {
-        const order = await Order.findById(req.params.id).populate('user', 'name email');
+        const order = await orderService.getOrderById(req.params.id);
         if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
         
         // Ensure user can only view their own orders unless admin
@@ -48,7 +48,7 @@ exports.getOrderById = async (req, res) => {
 // @access  Private
 exports.getMyOrders = async (req, res) => {
     try {
-        const orders = await Order.find({ user: req.user._id });
+        const orders = await orderService.getUserOrders(req.user._id);
         res.status(200).json({ success: true, count: orders.length, data: orders });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -60,7 +60,7 @@ exports.getMyOrders = async (req, res) => {
 // @access  Private/Admin
 exports.getOrders = async (req, res) => {
     try {
-        const orders = await Order.find().populate('user', 'id name');
+        const orders = await orderService.getAllOrders();
         res.status(200).json({ success: true, count: orders.length, data: orders });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -72,12 +72,9 @@ exports.getOrders = async (req, res) => {
 // @access  Private/Admin
 exports.updateOrderToDelivered = async (req, res) => {
     try {
-        const order = await Order.findById(req.params.id);
-        if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
-
-        order.isDelivered = true;
+        const updatedOrder = await orderService.updateOrderToDelivered(req.params.id);
+        if (!updatedOrder) return res.status(404).json({ success: false, message: 'Order not found' });
         
-        const updatedOrder = await order.save();
         res.status(200).json({ success: true, data: updatedOrder });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
