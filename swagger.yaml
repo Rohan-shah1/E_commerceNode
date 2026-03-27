@@ -1,0 +1,186 @@
+openapi: 3.0.0
+info:
+  title: E-commerce Backend API
+  description: Comprehensive REST API documentation for the E-commerce system.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string, example: "John Doe" }
+                email: { type: string, example: "john@example.com" }
+                password: { type: string, example: "secret123" }
+                role: { type: string, default: customer, enum: [customer, admin] }
+      responses:
+        '201': { description: Registered successfully }
+        '400': { description: Invalid format or user existing }
+  /auth/login:
+    post:
+      summary: Login user
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, example: "john@example.com" }
+                password: { type: string, example: "secret123" }
+      responses:
+        '200': { description: Logged in successfully, returns JWT Token }
+        '401': { description: Invalid credentials }
+  /auth/refresh:
+    post:
+      summary: Refresh JWT token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200': { description: Token refreshed }
+  /categories:
+    get:
+      summary: Get all categories
+      tags: [Categories]
+      responses:
+        '200': { description: List of categories }
+    post:
+      summary: Create a category
+      tags: [Categories]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        '201': { description: Category created }
+  /products:
+    get:
+      summary: Get all products (supports filtering, sorting, pagination)
+      tags: [Products]
+      parameters:
+        - in: query
+          name: keyword
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: sort
+          description: "Comma-separated values, prepend with minus for descending (e.g. -price)"
+          schema: { type: string }
+      responses:
+        '200': { description: List of queried products }
+    post:
+      summary: Create a product (Admin only)
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                description: { type: string }
+                price: { type: number }
+                category: { type: string }
+                stock: { type: number }
+      responses:
+        '201': { description: Product created }
+  /products/{id}:
+    get:
+      summary: View a single product
+      tags: [Products]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Product record returned }
+  /orders:
+    get:
+      summary: Get all orders globally (Admin only)
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: All orders listed }
+    post:
+      summary: Create a new order
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderItems: { type: array, items: { type: object } }
+                shippingAddress: { type: object }
+                totalPrice: { type: number }
+      responses:
+        '201': { description: Order successful }
+  /orders/myorders:
+    get:
+      summary: Read customer orders
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      responses:
+        '200': { description: List of isolated customer orders }
+  /uploads:
+    post:
+      summary: Upload an image file for products (Admin only)
+      tags: [Products]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image: { type: string, format: binary }
+      responses:
+        '200': { description: Returned path destination for the resource }
